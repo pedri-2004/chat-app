@@ -32,8 +32,10 @@ function Login() {
         }
       );
       dispatch(setUserData(result.data))
+      navigate("/")
       setEmail("")
       setPassword("")
+      setLoading(false)
       
     } catch (error) {
       const message = error.response?.data?.message;

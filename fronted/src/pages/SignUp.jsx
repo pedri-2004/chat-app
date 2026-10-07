@@ -23,6 +23,7 @@ function SignUp() {
     try{
       let result=await axios.post(`${serverUrl}/api/auth/signup`,{userName,email,password},{withCredentials:true})
       dispatch(setUserData(result.data))
+      navigate("/profile")
       setUserName("")
       setEmail("")
       setPassword("")
