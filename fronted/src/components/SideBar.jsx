@@ -7,10 +7,10 @@ import { RiLogoutBoxLine } from 'react-icons/ri';
 import { RxCross2 } from 'react-icons/rx';
 import dp from '../assets/dp.jpg';
 import { serverUrl } from '../main';
-import { setOtherUsers, setSelectedUser, setUserData } from '../redux/userSlice';
+import { setOnlineUsers, setOtherUsers, setSelectedUser, setUserData } from '../redux/userSlice';
 
 function SideBar() {
-  const { userData, otherUsers, selectedUser } = useSelector((state) => state.user);
+  const { userData, otherUsers, selectedUser, onlineUsers } = useSelector((state) => state.user);
   const [search, setSearch] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -20,6 +20,7 @@ function SideBar() {
       await axios.get(`${serverUrl}/api/auth/logout`, { withCredentials: true });
       dispatch(setUserData(null));
       dispatch(setOtherUsers(null));
+      dispatch(setOnlineUsers([]));
       navigate('/login');
     } catch (error) {
       console.log(error);
@@ -61,19 +62,32 @@ function SideBar() {
       <section className='min-h-0 flex-1 overflow-y-auto px-3 py-4'>
         <h2 className='px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400'>Chats</h2>
         <div className='space-y-1'>
-          {otherUsers?.map((user) => (
-            <button key={user._id} type='button' className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition ${selectedUser?._id === user._id ? 'bg-teal-50 text-teal-900' : 'text-slate-700 hover:bg-slate-50'}`} onClick={() => dispatch(setSelectedUser(user))}>
-              <span className='h-11 w-11 shrink-0 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200'>
-                <img src={user.image || dp} alt='' className='h-full w-full object-cover'/>
-              </span>
-              <span className='min-w-0 flex-1'>
-                <span className='block truncate text-sm font-medium'>{user.name || user.userName}</span>
-                {user.userName && user.name && user.userName !== user.name && (
-                  <span className='mt-0.5 block truncate text-xs text-slate-500'>@{user.userName}</span>
-                )}
-              </span>
-            </button>
-          ))}
+          {otherUsers?.map((user) => {
+            const userId = user?._id?.toString?.() || user?._id;
+            const isOnline = onlineUsers?.some((onlineUserId) => onlineUserId?.toString?.() === userId);
+
+            return (
+              <button
+                key={userId}
+                type='button'
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition ${selectedUser?._id === user._id ? 'bg-teal-50 text-teal-900' : 'text-slate-700 hover:bg-slate-50'}`}
+                onClick={() => dispatch(setSelectedUser(user))}
+              >
+                <span className='relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200'>
+                  <img src={user.image || dp} alt='' className='h-full w-full object-cover' />
+                  {isOnline && (
+                    <span className='absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-[3px] border-white bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.22)]' aria-label='Online' title='Online' />
+                  )}
+                </span>
+                <span className='min-w-0 flex-1'>
+                  <span className='block truncate text-sm font-medium'>{user.name || user.userName}</span>
+                  {user.userName && user.name && user.userName !== user.name && (
+                    <span className='mt-0.5 block truncate text-xs text-slate-500'>@{user.userName}</span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 

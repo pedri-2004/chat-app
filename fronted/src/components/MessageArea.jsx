@@ -1,10 +1,10 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IoIosArrowRoundBack } from 'react-icons/io';
 import { useDispatch, useSelector } from 'react-redux';
 import Picker from 'emoji-picker-react';
 import dp from '../assets/dp.jpg';
 import { setSelectedUser } from '../redux/userSlice';
-import { setMessage as setMessagesInRedux } from '../redux/messageSlice';
+import { appendMessage, setMessage as setMessagesInRedux } from '../redux/messageSlice';
 import { RiEmojiStickerLine } from 'react-icons/ri';
 import { FaImages } from 'react-icons/fa';
 import { RiSendInsLine } from 'react-icons/ri';
@@ -14,7 +14,7 @@ import { serverUrl } from '../main';
 import axios from 'axios';
 
 function MessageArea() {
-  const { selectedUser, userData } = useSelector((state) => state.user);
+  const { selectedUser, userData,socket } = useSelector((state) => state.user);
   const { messages = [] } = useSelector((state) => state.message || {});
   const dispatch = useDispatch();
   const [message, setMessage] = useState('');
@@ -62,6 +62,20 @@ function MessageArea() {
     if (!file) return;
     setSelectedImage(file);
   };
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (incomingMessage) => {
+      const senderId = String(incomingMessage.sender?._id || incomingMessage.sender);
+      if (senderId === String(selectedUser?._id)) {
+        dispatch(appendMessage(incomingMessage));
+      }
+    };
+
+    socket.on('newMessage', handleNewMessage);
+    return () => socket.off('newMessage', handleNewMessage);
+  }, [socket, selectedUser?._id, dispatch]);
+
 
   return (
     <main className={`${selectedUser ? 'flex' : 'hidden lg:flex'} min-w-0 flex-1 flex-col bg-slate-50`}>
@@ -88,7 +102,7 @@ function MessageArea() {
                 Start the conversation with a message.
               </div>
             ) : (
-              messages.map((msg) =>
+             messages.map((msg) =>
                 msg.sender === userData?._id ? (
                   <SenderMessage key={msg._id || `${msg.message}-${Math.random()}`} text={msg.message || msg.text} image={msg.image || ''} />
                 ) : (
@@ -97,6 +111,7 @@ function MessageArea() {
               )
             )}
           </section>
+          
 
           <div className='relative mt-auto w-full px-3 pb-4 sm:px-5 lg:px-6'>
             <form onSubmit={handleSendMessage} className='relative z-10 mx-auto flex h-[60px] w-full max-w-[760px] items-center gap-3 rounded-full bg-[#1797c2] px-3 shadow-[0_10px_30px_rgba(15,23,42,0.18)] sm:px-4'>
