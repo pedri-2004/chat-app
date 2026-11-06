@@ -12,7 +12,7 @@ dotenv.config()
 const port = Number(process.env.PORT) || 8000;
 
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: "https://chat-app-fronted-x6gy.onrender.com",
     credentials: true
 }));
 app.use(express.json());
