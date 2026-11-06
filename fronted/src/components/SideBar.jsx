@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -7,11 +7,14 @@ import { RiLogoutBoxLine } from 'react-icons/ri';
 import { RxCross2 } from 'react-icons/rx';
 import dp from '../assets/dp.jpg';
 import { serverUrl } from '../main';
-import { setOnlineUsers, setOtherUsers, setSelectedUser, setUserData } from '../redux/userSlice';
+import { setOnlineUsers, setOtherUsers, setSearchData, setSelectedUser, setUserData } from '../redux/userSlice';
 
 function SideBar() {
-  const { userData, otherUsers, selectedUser, onlineUsers } = useSelector((state) => state.user);
+  const { userData, otherUsers, selectedUser, onlineUsers, searchData } = useSelector((state) => state.user);
   const [search, setSearch] = useState(false);
+  const [input, setInput] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -26,6 +29,48 @@ function SideBar() {
       console.log(error);
     }
   };
+  useEffect(() => {
+    const query = input.trim();
+    if (!search || !query) {
+      dispatch(setSearchData([]));
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    dispatch(setSearchData([]));
+    const timeoutId = setTimeout(async () => {
+      try {
+        const result = await axios.get(`${serverUrl}/api/user/search`, {
+          params: { query },
+          withCredentials: true,
+          signal: controller.signal,
+        });
+        dispatch(setSearchData(result.data));
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setSearchError('Unable to search users. Please try again.');
+          console.error('Failed to search users:', error.response?.data || error.message);
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [dispatch, input, search]);
+
+  const closeSearch = () => {
+    setSearch(false);
+    setInput('');
+    setSearching(false);
+    setSearchError('');
+    dispatch(setSearchData([]));
+  };
+
+  const usersToShow = search ? searchData : otherUsers;
 
   return (
     <aside className={`${selectedUser ? 'hidden lg:flex' : 'flex'} h-full min-h-0 w-full shrink-0 flex-col border-r border-slate-200 bg-white lg:w-[320px]`}>
@@ -50,8 +95,18 @@ function SideBar() {
           ) : (
             <form className='flex h-10 items-center gap-2 rounded-lg border border-teal-300 bg-white px-3 shadow-sm'>
               <IoIosSearch className='h-5 w-5 shrink-0 text-slate-400'/>
-              <input type='text' placeholder='Search users...' className='h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400'/>
-              <button type='button' className='text-slate-400 transition hover:text-slate-700' onClick={() => setSearch(false)} aria-label='Close search'>
+              <input
+                type='text'
+                placeholder='Search users...'
+                className='h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400'
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  setSearching(Boolean(e.target.value.trim()));
+                  setSearchError('');
+                }}
+                value={input}
+              />
+              <button type='button' className='text-slate-400 transition hover:text-slate-700' onClick={closeSearch} aria-label='Close search'>
                 <RxCross2 className='h-5 w-5'/>
               </button>
             </form>
@@ -60,9 +115,9 @@ function SideBar() {
       </header>
 
       <section className='min-h-0 flex-1 overflow-y-auto px-3 py-4'>
-        <h2 className='px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400'>Chats</h2>
+        <h2 className='px-3 pb-2 text-xs font-semibold uppercase tracking-wider text-slate-400'>{search ? 'Search results' : 'Chats'}</h2>
         <div className='space-y-1'>
-          {otherUsers?.map((user) => {
+          {usersToShow?.map((user) => {
             const userId = user?._id?.toString?.() || user?._id;
             const isOnline = onlineUsers?.some((onlineUserId) => onlineUserId?.toString?.() === userId);
 
@@ -71,7 +126,10 @@ function SideBar() {
                 key={userId}
                 type='button'
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition ${selectedUser?._id === user._id ? 'bg-teal-50 text-teal-900' : 'text-slate-700 hover:bg-slate-50'}`}
-                onClick={() => dispatch(setSelectedUser(user))}
+                onClick={() => {
+                  dispatch(setSelectedUser(user));
+                  closeSearch();
+                }}
               >
                 <span className='relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200'>
                   <img src={user.image || dp} alt='' className='h-full w-full object-cover' />
@@ -88,6 +146,11 @@ function SideBar() {
               </button>
             );
           })}
+          {search && searching && <p className='px-3 py-3 text-sm text-slate-500'>Searching users...</p>}
+          {search && !searching && !searchError && input.trim() && !searchData?.length && (
+            <p className='px-3 py-3 text-sm text-slate-500'>No users found.</p>
+          )}
+          {search && searchError && <p className='px-3 py-3 text-sm text-red-600'>{searchError}</p>}
         </div>
       </section>
 
